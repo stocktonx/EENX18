@@ -1,0 +1,302 @@
+//
+//  Assignment2.cpp
+//  EEN318
+//
+//  Created by Andrew Stockton on 9/21/14.
+//  Copyright (c) 2014 Andrew Stockton. All rights reserved.
+//
+
+#include <iostream>
+#include <string>
+#include <fstream>
+
+using namespace std;
+
+const int tablesize = 1000;
+const bool debugging = false;
+
+struct person {
+    string name, phone;
+    person();
+    person(string n, string p) {
+        name = n;
+        phone = p;
+    }
+    
+    void print() {
+        cout << name << " ";
+        printphone();
+    }
+    
+    void printphone() {
+        cout << "(";
+        for(int a=0; a<3; a++)
+            cout<<phone[a];
+        cout << ") ";
+        for(int b=3; b<6; b++)
+            cout<<phone[b];
+        cout<<"-";
+        for(int c=6; c<10; c++)
+            cout<<phone[c];
+    }
+};
+
+struct Link {
+    person * human;
+    Link * next;
+    Link() {
+        human = NULL;
+        next = NULL;
+    }
+    Link(person * h, Link * n = NULL){
+        human = h;
+        next = n;
+    }
+    
+};
+
+struct Linkedlist {
+    Link * head;
+    Linkedlist()
+    { head = NULL; }
+    
+    bool search(string s) {
+        Link * p = head;
+        while(p != NULL) {
+            if (p->human->name == s)
+                return true;
+            p = p->next; }
+        return false;
+    }
+    
+    void insert(person * p) {
+        head = new Link(p, head);
+    }
+    
+    
+    void printhash() {
+        Link * p = head;
+        if (p == NULL) cout << "empty\n";
+        while( p!= NULL) {
+            cout <<"    ";
+            p->human->print();
+            p = p->next;
+        }
+    }
+    
+    int length() {
+        int count = 0;
+        Link * x = head;
+        while(x != NULL) {
+            count += 1;
+            x = x->next; }
+        return count;
+    }
+    
+    void fixstring(string & input) {
+        int stringlength = input.length();
+        for(int z = 0; z<stringlength; z++) {
+            if (input[z] >= 'A' && input[z] <= 'Z')
+                input[z] = input[z] + ('a' - 'A');
+            else if(input[z] < 'a' || input[z] > 'z')
+                cout << " warning: name of person doesn't contain characters :(\n";
+        }
+    }
+
+    int hashh(string  s, int & size) {
+        fixstring(s);           // all strings will now be .... lowercase when hashing....
+        int h = 278361;
+        const int len = s.length();
+        for (int i = 0; i < len; i += 1)
+            h = h * 69 + s[i];
+        if (h < 0)
+            h = -h;
+        return h % size; }
+    
+    void findperson(Linkedlist * &table, int & newsize) {
+        cout << "\n\nWelcome to THE PHONEBOOK.\nPlease enter name of person you wish to call\n";
+        while(true) {
+            cout << "\nsearch for: ";
+            string userinput;
+            cin >> userinput;
+            cout << endl;
+            int id = table->hashh(userinput, newsize);
+            if(debugging) cout << "         hash value is: " << id << endl;
+            Link * scanner = table[id].head;
+            fixstring(userinput);
+            while(scanner != NULL) {
+		if(debugging) {
+			cout << "comparing " << scanner->human->name << " with " << userinput << endl;
+		}
+                string compareme = scanner->human->name;
+                fixstring(compareme);
+                if(userinput == compareme) {
+                    cout<< "      " << userinput << "'s phone number is: ";
+                    scanner->human->printphone();
+                    cout << endl;
+                    break; }
+                scanner = scanner->next;
+
+            }
+            
+            if(scanner == NULL)
+                cout << "      user not found.\n";
+        }
+    }
+    
+};
+
+struct stringulator
+{ string previous;
+  string phone;
+    
+    stringulator() {
+        previous = "A";
+        phone = "1"; }
+    
+    void next() {
+        int pos = 0, len = previous.length();
+        while (pos < len)
+        {   char c = previous[pos] + 1;
+            if (c <= 'Z')
+            {   previous[pos] = c;
+                return; }
+            previous[pos] = 'A';
+            pos += 1; }
+        previous += 'A'; }
+    
+    void nextnumber() {
+        int pos = 0, len = phone.length();
+        while (pos < len)
+        {   char c = phone[pos] + 1; // c is the character.
+            if (c <= '9')
+            {   phone[pos] = c;
+                return; }
+            phone[pos] = '0';
+            pos += 0; }
+        phone += '0'; }
+    
+    string makename() {
+        string s = previous;
+        next();
+        for (int i = 0; i < 4; i += 1)
+        {   int r = random() % 26;
+            s += (char)(r + 'A'); }
+        return s; }
+    
+    string makenumber() {
+        string s = phone;
+        nextnumber();
+        for (int i = 0; i < 9; i += 1)
+        {   int r = random() % 10;
+            s += char(r + '0'); }
+        return s;
+    }
+};
+
+Linkedlist * resize(Linkedlist * original, int & tsize) {
+    tsize = tsize*2;
+    Linkedlist * temp = new Linkedlist[tsize];
+    if(debugging) cout << "size going into hash is: " << tsize << endl;
+    for(int i=0; i<(tsize/2); i++){
+        Link * snake = original[i].head;
+        while(snake != NULL) {
+            int hasher = original->hashh(snake->human->name, tsize);
+            temp[hasher].insert(snake->human);
+            snake = snake->next;
+        }
+    }
+    if(debugging) {
+        for(int p = 0; p < tsize; p++) {
+            cout << p << ": length is " << temp[p].length() << endl; }
+        cout << endl; }
+    delete original;
+    return temp;
+}
+
+int read_file(Linkedlist * &table) {
+    ifstream fin("phonebook.txt");
+    if (fin.fail())
+    { cout << "Failed to open file\n"; exit(1); }
+    
+    int filesize = 0;
+    int tsize = tablesize;
+    
+    while (true)
+    {   string name, num;
+        if ( fin.fail() ) {
+            if(debugging) cout << "broke. end of file reached?";
+            break; }
+        fin >> name >> num;
+        person * p = new person(name, num);
+        int h = table->hashh(name, tsize);
+        table[h].insert(p);
+        if(debugging){
+            cout << "hash is " << h << endl;
+            cout << "   length is " << table[h].length() << endl;
+            cout << "   h contains: " <<endl; table[h].printhash();
+            cout << endl;
+        }     // printing person of the slot in the table
+        
+        filesize += 1;
+        
+        if(filesize == tsize) {
+            table = resize(table, tsize);
+            if(debugging) cout << "table size is now: " << tsize << endl;
+        }
+    }
+    
+    fin.close();
+    cout << endl << endl;
+    return tsize;
+}
+
+int main() {
+  /*  
+    //  RANDOM STRING GENERATOR
+    srandomdev();
+    stringulator S;
+    ofstream fout("phonebook.txt");
+    if(fout.fail()) {
+        cout << "can't create phonebook.txt" << endl;
+        exit(1); }
+    for(int i = 0; i < 100000; i++) {
+        fout << S.makename() << " " << S.makenumber() << endl;
+    }
+*/     
+    
+    Linkedlist * phonebook = new Linkedlist[tablesize];
+    int finalsize = read_file(phonebook);   // final size of my hashtable
+    
+    if(debugging) {
+        for(int i = 0; i<finalsize; i++) {
+            cout << i << endl;
+            phonebook[i].printhash();
+        }
+    }
+    
+    if(debugging) cout << "table size is now " << finalsize << endl << endl;
+    
+        int countsize = 20;
+        double counts[countsize];
+        for (int i = 0; i < countsize; i += 1)
+                counts[i] = 0;
+        for (int i = 0; i < finalsize; i += 1)
+                counts[phonebook[i].length()] += 1;
+        for (int i = 0; i < countsize; i += 1)
+            cout << "Linked list length " << i << " appeared " << counts[i] << " times\n";
+    
+    if(debugging) {
+        for(int l=0; l<finalsize; l++) {
+            cout << l << endl;
+            Link * poop = phonebook[l].head;
+            while(poop != NULL) {
+                cout << "           ";
+                poop->human->print();
+                poop = poop->next; }
+        }
+    }
+    
+    phonebook->findperson(phonebook, finalsize);    // Loop for User to search #'s
+    return 0;
+}
